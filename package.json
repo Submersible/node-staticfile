@@ -1,0 +1,30 @@
+{
+    "name": "staticFile",
+    "version": "0.0.0",
+    "author": "RingerIO",
+    "description": "Static files manager, allowing for forever-caching",
+    "contributors": [
+        {
+            "name": "Robert Hall",
+            "github": "robthehall"
+        }
+    ],
+    "bin": {
+    },
+    "scripts": {
+    },
+    "main": "./lib/main",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/RingerIO/node-staticFile"
+    },
+
+    "dependencies": {
+    },
+    "devDependencies": {
+    },
+    "license": "MIT",
+    "engine": {
+        "node": ">=0.8.4"
+    }
+}
