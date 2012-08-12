@@ -5,6 +5,8 @@ var staticFile = (function (hashes) {
 
     var path = require('path');
 
+    hashes = {};
+
     /**
      * @param {String} filename Filename to affix
      * @return {String} Affixed filename
@@ -23,11 +25,11 @@ var staticFile = (function (hashes) {
     staticFile.affixFile = function (filename, hash, path, match) {
         path = '';
         if ((match = filename.match(/(^.*\/)([^\/]+$)/))) {
-            path = match[0];
-            filename = match[1];
+            path = match[1];
+            filename = match[2];
         }
         match = filename.match(/(^[^\.]*)(.*$)/);
-        return path + match[0] + '_' + hash + match[1];
+        return path + match[1] + '_' + hash + match[2];
     };
 
     /**

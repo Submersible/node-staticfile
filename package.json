@@ -1,7 +1,7 @@
 {
   "name": "staticfile",
   "version": "0.0.1",
-  "author": "RingerIO",
+  "author": "RingerIO <dev@ringer.io>",
   "description": "Static files manager, allowing for forever-caching",
   "contributors": [
     "Robert Hall",
@@ -9,7 +9,7 @@
   ],
   "bin": {},
   "scripts": {
-    "test": "tap ./tests"
+    "test": "tap test.js"
   },
   "main": "./lib/main",
   "browserify": "./staticFile",
