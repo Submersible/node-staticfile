@@ -13,7 +13,7 @@ var staticFile = (function (hashes) {
      */
     function staticFile(filename, hash) {
         return path.join('/', (hash = hashes[filename]) ?
-                                    staticFile.affixFile(filename, hash) :
+                                    staticFile.affix(filename, hash) :
                                     filename);
     }
 
@@ -22,7 +22,7 @@ var staticFile = (function (hashes) {
      * @param {String} hash Hash to affix into filename
      * @return {String} Affixed filename
      */
-    staticFile.affixFile = function (filename, hash, path, match) {
+    staticFile.affix = function (filename, hash, path, match) {
         path = '';
         if ((match = filename.match(/(^.*\/)([^\/]+$)/))) {
             path = match[1];
