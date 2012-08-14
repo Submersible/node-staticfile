@@ -1,17 +1,8 @@
 /*jslint node: true */
-
 'use strict';
 
 var test = require('tap').test,
-    staticfile;
-
-var staticFile = require('./staticFile');
-
-// test('require', function (t) {
-//     staticfile = require('../lib/main');
-//     t.type(staticfile, 'object');
-//     t.end();
-// });
+    staticFile = require('./staticFile');
 
 test('staticFile#affix', function (t) {
     t.equal(
@@ -45,5 +36,3 @@ test('staticFile#function', function (t) {
     );
     t.end();
 });
-
-//staticfile.hash({input: 'node_modules'});
