@@ -23,8 +23,10 @@
     "q": "~0.8.6"
   },
   "devDependencies": {
-    "tap": "~0.2.6",
-    "fs.extra": "~1.2.0"
+    "MD5": "~1.0.0",
+    "tap": "~0.3.0",
+    "fs.extra": "~1.2.0",
+    "q": "~0.8.6"
   },
   "license": "BSD",
   "engine": {

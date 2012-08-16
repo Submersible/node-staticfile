@@ -9,9 +9,10 @@ var fs = require('fs.extra'),
     staticFile = require('./staticFile'),
 
     hashed = Q.defer(),
+    hashedPromise = hashed.promise,
 
     lookup = function (file, callback) {
-        hashed.then(function (hashes) {
+        hashedPromise.then(function (hashes) {
             callback(hashes[file]);
         });
     },
@@ -43,12 +44,27 @@ var fs = require('fs.extra'),
                         hashed.reject(newPath + ': ' + err);
                         return;
                     }
-                    fs.copy(filePath, newPath, function (err) {
-                        if (err) {
-                            hashed.reject(newPath + ': ' + err);
-                            return;
+                    var copy = function () {
+                        fs.copy(filePath, newPath, function (err) {
+                            if (err) {
+                                hashed.reject(newPath + ': ' + err);
+                                return;
+                            }
+                            next();
+                        });
+                    };
+                    fs.exists(newPath, function (exists) {
+                        if (exists) {
+                            fs.unlink(newPath, function (err) {
+                                if (err) {
+                                    hashed.reject(newPath + ': ' + err);
+                                    return;
+                                }
+                                copy();
+                            });
+                        } else {
+                            copy();
                         }
-                        next();
                     });
                 });
             });
@@ -59,38 +75,35 @@ var fs = require('fs.extra'),
         });
     },
     hashes = function (filters, callback) {
-        var keys,
-            subset;
         if (typeof filters === 'function') {
             callback = filters;
             filters = null;
         }
-        hashed.then(function (error, hashes) {
-            if (error) {
-                callback(error);
-                return;
-            }
+        hashedPromise.fail(callback);
+        hashedPromise.then(function (hashes) {
+            var files,
+                hashesSubset;
             if (!filters) {
                 callback(null, hashes);
                 return;
             }
-            keys = Object.keys(hashes);
-            subset = filters.reduce(hashes, function (subset, filter) {
+            files = Object.keys(hashes);
+            hashesSubset = filters.reduce(function (subset, filter) {
                 if (typeof filter === 'string') {
                     if (hashes.hasOwnProperty(filter)) {
                         subset[filter] = hashes[filter];
                     }
                 } else {
                     // assume regex
-                    keys.forEach(function (key) {
-                        if (key.search(filter) > -1) {
-                            subset[key] = hashes[key];
+                    files.forEach(function (file) {
+                        if (file.search(filter) > -1) {
+                            subset[file] = hashes[file];
                         }
                     });
                 }
                 return subset;
             }, {});
-            callback(null, subset);
+            callback(null, hashesSubset);
         });
     };
 
