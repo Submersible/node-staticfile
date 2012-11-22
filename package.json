@@ -15,7 +15,7 @@
   "browserify": "./staticFile",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RingerIO/node-staticFile"
+    "url": "git://github.com/Submersible/node-staticfile.git"
   },
   "dependencies": {
     "MD5": "~1.0.0",
@@ -28,7 +28,7 @@
     "fs.extra": "~1.2.0",
     "q": "~0.8.6"
   },
-  "license": "BSD",
+  "license": "MIT",
   "engine": {
     "node": ">=0.8.4"
   }
