@@ -61,3 +61,4 @@ var staticfile = (function (hashes, prefix) {
 
     return staticfile;
 }({}, ''));
+module.exports = staticfile;

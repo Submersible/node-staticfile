@@ -1,35 +1,40 @@
 {
   "name": "staticfile",
-  "version": "0.0.1",
-  "author": "RingerIO <dev@ringer.io>",
+  "version": "0.1.0-beta",
+  "author": "Submersible <dev@ringer.io>",
   "description": "Static files manager, allowing for forever-caching",
   "contributors": [
     "Robert Hall",
-    "Ryan Munro <munro.github@gmail.com>"
+    "Ryan Munro <ryan@subc.io>"
   ],
   "bin": {},
   "scripts": {
     "test": "tap test.js"
   },
   "main": "./index",
-  "browserify": "./staticFile",
+  "browserify": "./dist/browserify",
   "repository": {
     "type": "git",
     "url": "git://github.com/Submersible/node-staticfile.git"
   },
   "dependencies": {
-    "MD5": "~1.0.0",
-    "fs.extra": "~1.2.0",
-    "q": "~0.8.6"
+    "q": "~0.8.12",
+    "fs.extra": "~1.2.0"
   },
   "devDependencies": {
-    "MD5": "~1.0.0",
-    "tap": "~0.3.0",
-    "fs.extra": "~1.2.0",
-    "q": "~0.8.6"
+    "uglify-js": "~2.2.3",
+    "tap": "~0.3.3"
   },
   "license": "MIT",
   "engine": {
     "node": ">=0.8.4"
-  }
+  },
+  "readmeFilename": "README.md",
+  "keywords": [
+    "assest",
+    "static",
+    "file",
+    "hash",
+    "cache"
+  ]
 }

@@ -1,112 +1,163 @@
-/*jslint node: true */
+/*jslint node: true, nomen: true, stupid: true */
+
 'use strict';
 
-var fs = require('fs.extra'),
-    md5 = require('MD5'),
+var Q = require('q'),
+    fs = require('fs.extra'),
+    crypto = require('crypto'),
     path = require('path'),
-    Q = require('q'),
+    exec = Q.nfbind(require('child_process').exec);
 
-    staticFile = require('./staticFile'),
+var staticfile = require('./dist/browserify');
 
-    hashed = Q.defer(),
-    hashedPromise = hashed.promise,
+/**
+ * Present the same Q interface for both sync/non-sync versions of fs commands.
+ */
+function fsCmd(cmd, sync) {
+    var d, args = Array.prototype.slice.call(arguments, 2);
+    if (sync) {
+        d = Q.defer();
+        try {
+            d.resolve(fs[cmd + 'Sync'].apply(fs, args));
+        } catch (e) {
+            d.reject(e);
+        }
+        return d.promise;
+    }
+    return Q.ninvoke.apply(Q, [fs, cmd].concat(args));
+}
 
-    lookup = function (file, callback) {
-        hashedPromise.then(function (hashes) {
-            callback(hashes[file]);
+/**
+ * Recursively crawl a directory for all of it's files.
+ */
+function crawlDirectoryWithFS(parent, sync) {
+    return fsCmd('readdir', sync, parent).then(function (things) {
+        return Q.all(things.map(function (file) {
+            file = path.join(parent, file);
+            return Q.all([file, fsCmd('stat', sync, file)]);
+        }));
+    }).then(function (stats) {
+        return Q.all(stats.map(function (args) {
+            var file = args[0], stat = args[1];
+            if (stat.isDirectory()) {
+                return crawlDirectoryWithFS(file, sync);
+            }
+            return file;
+        }));
+    }).then(function (grouped) {
+        return [].concat.apply([], grouped);
+    });
+}
+
+/**
+ * Crawl a directory for all of it's files!
+ */
+function crawlDirectory(parent, sync) {
+    if (sync) {
+        return crawlDirectory(parent, sync);
+    }
+    /* Use `find` if available, because it's fast! */
+    return exec('find ' + parent + ' -not -type d').spread(function (stdin) {
+        return stdin.split('\n').filter(function (file) {
+            return !!file;
         });
-    },
-    init = function (options) {
-        var inDir = options.input,
-            outDir = options.output,
-            hashes = {},
-            walker = fs.walk(inDir);
+    }).fail(function () {
+        return crawlDirectoryWithFS(parent, sync);
+    });
+}
 
-        walker.on('file', function (root, stats, next) {
-            var fileName = stats.name,
-                filePath = root + path.sep + fileName,
-                newName,
-                newPath,
-                hash;
-            fs.readFile(filePath, function (err, data) {
-                if (err) {
-                    hashed.reject(filePath + ': ' + err);
-                    return;
+/**
+ * Rewrite a assets to have the hash in their filename.
+ *
+ * I should add options to NOT ignore dotfiles, and also an options to move
+ * instead of copy files.
+ *
+ * @param {Object} opts
+ * @param {String} opts.input Directory of static files to rewrite
+ * @param {String} opts.output Directory where to put rewritten files, can
+ *                             be the same as the input dir
+ * @param {Array<String>} [opts.files] List of files to rewrite instead of
+ *                                     scanning the input directory
+ * @param {String} [opts.move] Renames files instead of copying them
+ * @param {Boolean} [opts.sync] Synchronous file modification
+ * @param {Function} [opts.hash] Hash functions
+ * @param {Function} [cb(err, hashes)] Callback function
+ */
+staticfile.rewrite = function (opts, cb) {
+    var hashes = {},
+        promise;
+
+    opts.sync = false; // Q wraps things with a nextTick, which is preventing
+                       // me from doing this :/
+
+    opts.hash = opts.hash || function (data) {
+        return crypto.createHash('sha1').update(data).digest('hex');
+    };
+
+    /* Rewrite directory */
+    if (opts.files) {
+        promise = Q.fcall(function () {
+            return opts.files.map(function (file) {
+                return path.join(path.resolve(process.cwd(), opts.input), file);
+            });
+        });
+    } else {
+        promise = crawlDirectory(opts.input, opts.sync);
+    }
+
+    promise = promise.then(function (files) {
+        return Q.all(files.map(function (file) {
+            var dir = path.dirname(file),
+                rel = path.relative(opts.input, file);
+
+            return fsCmd('readFile', opts.sync, file).then(function (data) {
+                return opts.hash(data);
+            }).then(function (hash) {
+                hashes[rel] = hash;
+
+                /* Rename */
+                if (opts.move) {
+                    return fsCmd(
+                        'rename',
+                        opts.sync,
+                        file,
+                        staticfile.affix(file, hash)
+                    );
                 }
-                hash = md5(data);
-                hashes[filePath] = hash;
 
-                newName = staticFile.affix(fileName, hash);
-                newPath = root.replace(inDir, outDir) + path.sep + newName;
-
-                fs.mkdirp(path.dirname(newPath), function (err) {
-                    if (err) {
-                        hashed.reject(newPath + ': ' + err);
-                        return;
-                    }
-                    var copy = function () {
-                        fs.copy(filePath, newPath, function (err) {
-                            if (err) {
-                                hashed.reject(newPath + ': ' + err);
-                                return;
-                            }
-                            next();
-                        });
-                    };
-                    fs.exists(newPath, function (exists) {
-                        if (exists) {
-                            fs.unlink(newPath, function (err) {
-                                if (err) {
-                                    hashed.reject(newPath + ': ' + err);
-                                    return;
-                                }
-                                copy();
-                            });
-                        } else {
-                            copy();
-                        }
+                /* Copy */
+                return fsCmd(
+                    'mkdirp',
+                    opts.sync,
+                    path.dirname(path.join(opts.output, rel))
+                ).then(function () {
+                    return fsCmd(
+                        'copy',
+                        opts.sync,
+                        file,
+                        path.join(opts.output, staticfile.affix(rel, hash))
+                    ).fail(function () {
+                        /**
+                         * Surpress error, don't overwrite.  May be good to
+                         * make this an option, though.
+                         */
+                        return Q.defer().resolve();
                     });
                 });
             });
-        });
+        }));
+    }).then(function () {
+        staticfile.add(hashes);
+        return hashes;
+    });
+    if (!cb) {
+        return promise;
+    }
+    promise.then(function () {
+        cb(false, hashes);
+    }).fail(function (e) {
+        cb(e);
+    });
+};
 
-        walker.on('end', function () {
-            hashed.resolve(hashes);
-        });
-    },
-    hashes = function (filters, callback) {
-        if (typeof filters === 'function') {
-            callback = filters;
-            filters = null;
-        }
-        hashedPromise.fail(callback);
-        hashedPromise.then(function (hashes) {
-            var files,
-                hashesSubset;
-            if (!filters) {
-                callback(null, hashes);
-                return;
-            }
-            files = Object.keys(hashes);
-            hashesSubset = filters.reduce(function (subset, filter) {
-                if (typeof filter === 'string') {
-                    if (hashes.hasOwnProperty(filter)) {
-                        subset[filter] = hashes[filter];
-                    }
-                } else {
-                    // assume regex
-                    files.forEach(function (file) {
-                        if (file.search(filter) > -1) {
-                            subset[file] = hashes[file];
-                        }
-                    });
-                }
-                return subset;
-            }, {});
-            callback(null, hashesSubset);
-        });
-    };
-
-lookup.init = init;
-lookup.hashes = hashes;
-module.exports = lookup;
+module.exports = staticfile;
